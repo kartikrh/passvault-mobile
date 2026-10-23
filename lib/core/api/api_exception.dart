@@ -7,7 +7,12 @@ class ApiException implements Exception {
   final String message;
   final String? title;
 
-  const ApiException(this.message, {this.title});
+  /// PassVaultapi's machine-readable error code (error.code), e.g.
+  /// DRIVE_REAUTH_REQUIRED or QUOTA_EXCEEDED -- null when the request never
+  /// reached the server.
+  final String? code;
+
+  const ApiException(this.message, {this.title, this.code});
 
   @override
   String toString() => message;

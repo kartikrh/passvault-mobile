@@ -50,11 +50,24 @@ class SessionController extends StateNotifier<SessionState> {
     }
   }
 
+  /// A fresh password/Google sign-in -- that already proved who this is, so
+  /// it also lifts the biometric app lock.
   void setAuthenticated(Client client) {
+    _ref.read(appLockProvider.notifier).unlock();
     state = SessionAuthenticated(client);
   }
 
-  Future<void> logout() async {
+  /// Re-reads the profile after something changed it (username/password
+  /// set, 2FA enrolled or reset) so every gate sees the new state.
+  Future<void> refreshProfile() async {
+    final client = await _ref.read(authRepositoryProvider).fetchProfile();
+    if (state is SessionAuthenticated) state = SessionAuthenticated(client);
+  }
+
+  /// [reason] is shown on the login screen when the sign-out wasn't the
+  /// user's own choice (VPN detected, account suspended/deleted).
+  Future<void> logout({String? reason}) async {
+    _ref.read(logoutReasonProvider.notifier).state = reason;
     try {
       await _ref.read(authRepositoryProvider).logout();
     } on ApiException {
@@ -67,6 +80,10 @@ class SessionController extends StateNotifier<SessionState> {
       // account on the same device) does a fresh recover rather than reusing
       // whatever was cached here.
       _ref.read(vaultKeyControllerProvider.notifier).clear();
+      // Signing out ends biometric unlock too -- the next person to sign in
+      // on this device must not inherit the stored vault key.
+      await _ref.read(biometricServiceProvider).disable();
+      _ref.read(appLockProvider.notifier).unlock();
       state = const SessionUnauthenticated();
     }
   }

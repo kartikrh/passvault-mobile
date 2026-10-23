@@ -27,6 +27,7 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
   late final _urlController = TextEditingController(text: widget.initial?.url ?? '');
   late List<SecurityQuestion> _securityQuestions = List.of(widget.initial?.securityQuestions ?? []);
   late List<String> _tags = List.of(widget.initial?.tags ?? []);
+  late bool _hidden = widget.initial?.hidden ?? false;
   bool _obscurePassword = true;
 
   @override
@@ -67,6 +68,8 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
         url: _urlController.text.trim(),
         securityQuestions: questions,
         tags: _tags,
+        hidden: _hidden,
+        extra: widget.initial?.extra ?? const {},
       ),
     );
   }
@@ -164,6 +167,13 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
               ),
             const SizedBox(height: 16),
             TagsEditor(tags: _tags, onChanged: (t) => setState(() => _tags = t)),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Hide from the list'),
+              subtitle: const Text('Only shown after biometrics or a 2FA code'),
+              value: _hidden,
+              onChanged: (v) => setState(() => _hidden = v),
+            ),
           ],
         ),
       ),

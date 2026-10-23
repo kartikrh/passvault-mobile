@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>passvault_mobile</string>
+	<string>PassVault</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -26,6 +26,8 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSFaceIDUsageDescription</key>
+	<string>PassVault uses Face ID to unlock your vault and to show saved passwords.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>PassVault requires your location to sign in and register, matching PassVaultapi's login/registration security checks.</string>
 	<key>UIApplicationSceneManifest</key>
