@@ -54,4 +54,22 @@ void main() {
       throwsA(anything),
     );
   });
+
+  // Key check made by passvault-client's createKeyCheck (WebCrypto, random IV)
+  // for expectedVaultKey -- both apps must accept each other's checks.
+  const webKeyCheck = '5o6mBDRSVHE2vREZ65NJUKU32l0+jFxwT84bP5tZB7/ArzBLRBPJeDRAJGw/HzszapU9e3kdOy1orPsTZTQ=';
+
+  test('verifyKeyCheck accepts a key check made by the web client', () {
+    expect(verifyKeyCheck(expectedVaultKey, webKeyCheck), isTrue);
+  });
+
+  test('verifyKeyCheck rejects the wrong key', () {
+    final wrongKey = deriveVaultKeyFromPassword('wrong password', kdfSalt);
+    expect(verifyKeyCheck(wrongKey, webKeyCheck), isFalse);
+    expect(verifyKeyCheck(wrongKey, createKeyCheck(expectedVaultKey)), isFalse);
+  });
+
+  test('createKeyCheck round-trips', () {
+    expect(verifyKeyCheck(expectedVaultKey, createKeyCheck(expectedVaultKey)), isTrue);
+  });
 }

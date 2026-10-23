@@ -55,8 +55,13 @@ class ApiClient {
           final message = ((nestedError is Map ? nestedError['message'] : null) ?? (data is Map ? data['message'] : null)) as String? ??
               'Unable to reach the server. Please try again.';
           final title = (data is Map ? data['title'] : null) as String?;
+          final code = (nestedError is Map ? nestedError['code'] : null) as String?;
           handler.reject(
-            DioException(requestOptions: error.requestOptions, error: ApiException(message, title: title), type: error.type),
+            DioException(
+              requestOptions: error.requestOptions,
+              error: ApiException(message, title: title, code: code),
+              type: error.type,
+            ),
           );
         },
       ),
@@ -69,7 +74,8 @@ class ApiClient {
   DioException _rejection(RequestOptions options, Map data) {
     final message = (data['error']?['message'] ?? data['message'] ?? 'Something went wrong.') as String;
     final title = data['title'] as String?;
-    return DioException(requestOptions: options, error: ApiException(message, title: title));
+    final code = data['error'] is Map ? data['error']['code'] as String? : null;
+    return DioException(requestOptions: options, error: ApiException(message, title: title, code: code));
   }
 
   /// Unwraps a DioException down to the [ApiException] every onError/onResponse

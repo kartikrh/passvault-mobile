@@ -11,8 +11,11 @@ class SecurityQuestion {
   Map<String, dynamic> toJson() => {'question': question, 'answer': answer};
 }
 
-/// Account fields, matching passvault-client's AddAccountForm.js exactly:
-/// { title, username, password, url, securityQuestions, tags }.
+/// Account fields, matching passvault-client's AddAccountForm.js /
+/// EditAccountForm.js: { title, username, password, url, securityQuestions,
+/// tags, hidden }. Any other field already stored on the entry is carried
+/// through untouched in [extra], so editing on mobile never strips data a
+/// newer client version (or the web app) added.
 class Account {
   final String? id; // null for a not-yet-saved account
   final String title;
@@ -21,6 +24,8 @@ class Account {
   final String url;
   final List<SecurityQuestion> securityQuestions;
   final List<String> tags;
+  final bool hidden;
+  final Map<String, dynamic> extra;
 
   const Account({
     this.id,
@@ -30,7 +35,11 @@ class Account {
     this.url = '',
     this.securityQuestions = const [],
     this.tags = const [],
+    this.hidden = false,
+    this.extra = const {},
   });
+
+  static const _knownFields = {'title', 'username', 'password', 'url', 'securityQuestions', 'tags', 'hidden'};
 
   factory Account.fromEntry(VaultEntry entry) {
     final questions = (entry.fields['securityQuestions'] as List<dynamic>? ?? [])
@@ -45,6 +54,8 @@ class Account {
       url: entry.fields['url'] as String? ?? '',
       securityQuestions: questions,
       tags: tags,
+      hidden: entry.fields['hidden'] as bool? ?? false,
+      extra: Map.of(entry.fields)..removeWhere((key, _) => _knownFields.contains(key)),
     );
   }
 
@@ -52,12 +63,14 @@ class Account {
         id: id,
         type: VaultEntryType.account,
         fields: {
+          ...extra,
           'title': title,
           'username': username,
           'password': password,
           'url': url,
           'securityQuestions': securityQuestions.map((q) => q.toJson()).toList(),
           'tags': tags,
+          'hidden': hidden,
         },
       );
 }

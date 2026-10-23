@@ -93,3 +93,23 @@ Map<String, dynamic> decryptVaultBlob(String vaultKeyBase64, String blobBase64) 
   final plaintext = cipher.process(ciphertextAndTag);
   return jsonDecode(utf8.decode(plaintext)) as Map<String, dynamic>;
 }
+
+/// Fixed marker inside the key check stored server-side
+/// (tblClientVaultKey.wrKeyCheck) -- identical to passvault-client's
+/// vaultCrypto.js so either app can verify a key check the other created.
+const String keyCheckMarker = 'passvault-key-check-v1';
+
+/// Encrypts the key-check marker with [vaultKeyBase64]. The server stores
+/// this instead of the key itself, which lets an unlock detect a wrong vault
+/// password without the server ever being able to derive or test the key.
+String createKeyCheck(String vaultKeyBase64) => encryptVaultBlob(vaultKeyBase64, {'check': keyCheckMarker});
+
+/// True if [keyCheck] decrypts to the marker under [vaultKeyBase64]; false
+/// for a wrong key (GCM authentication failure) or a malformed check.
+bool verifyKeyCheck(String vaultKeyBase64, String keyCheck) {
+  try {
+    return decryptVaultBlob(vaultKeyBase64, keyCheck)['check'] == keyCheckMarker;
+  } catch (_) {
+    return false;
+  }
+}

@@ -63,6 +63,9 @@ dependencies:
   # this one is mandatory, so it needs a real location fix, not a
   # best-effort attempt.
   geolocator: ^13.0.2
+  local_auth: ^3.0.2
+  flutter_widget_from_html_core: ^0.17.4
+  url_launcher: ^6.3.3
 
 dev_dependencies:
   flutter_test:

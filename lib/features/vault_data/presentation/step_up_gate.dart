@@ -16,12 +16,36 @@ import '../../../core/providers.dart';
 ///
 /// Returns true once verified, false/null if the user cancelled or the
 /// code was wrong.
+///
+/// With biometric unlock enabled, a fingerprint/face check is offered first
+/// and replaces the 2FA code; cancelling it falls back to the code dialog.
 Future<bool> showStepUpGate(
   BuildContext context, {
   required bool otpEnabled,
   String? entryId,
   String? entryName,
 }) async {
+  final container = ProviderScope.containerOf(context, listen: false);
+  final biometrics = container.read(biometricServiceProvider);
+  if (await biometrics.isEnabled() &&
+      await biometrics.authenticate(entryId != null ? 'Show this saved password' : "Confirm it's you")) {
+    if (entryId != null) {
+      // Same audit trail as a code-verified reveal; best effort, like the
+      // location lookup, so a flaky network doesn't block the user.
+      try {
+        final coords = await container.read(locationServiceProvider).tryGetCurrentLocation();
+        await container.read(stepUpRepositoryProvider).logPasswordViewed(
+              entryId: entryId,
+              entryName: entryName,
+              latitude: coords?.latitude,
+              longitude: coords?.longitude,
+            );
+      } catch (_) {}
+    }
+    return true;
+  }
+  if (!context.mounted) return false;
+
   final result = await showDialog<bool>(
     context: context,
     barrierDismissible: !otpEnabled, // no code to enter -- let it auto-submit

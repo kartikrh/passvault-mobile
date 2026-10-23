@@ -23,5 +23,10 @@ const noteColorOptions = <NoteColorOption>[
   NoteColorOption(value: 'gray', label: 'Gray', swatch: Color(0xFFE0E0E0)),
 ];
 
-Color noteColorSwatch(String? color) =>
+/// Opaque swatch for the colour picker dots.
+Color noteSwatchColor(String? color) =>
     noteColorOptions.firstWhere((c) => c.value == color, orElse: () => noteColorOptions.first).swatch;
+
+/// Note card background: a translucent tint over the glass (null = default
+/// glass), so text stays readable in every palette, including dark Amethyst.
+Color? noteColorSwatch(String? color) => color == null ? null : noteSwatchColor(color).withValues(alpha: 0.4);
