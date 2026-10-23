@@ -11,6 +11,7 @@ import '../domain/vault_entry.dart';
 import 'account_form_screen.dart';
 import 'reveal_account_dialog.dart';
 import 'step_up_gate.dart';
+import 'vault_widgets.dart';
 
 /// Accounts tab -- list/add/edit/delete/reveal, each of the latter three
 /// gated by a fresh 2FA step-up (see passvault-client's VaultAccountList.js:
@@ -28,6 +29,10 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
   List<VaultEntry> _entries = [];
   Map<String, String?> _revisionIds = {};
   String _search = '';
+  // Entries saved with Hide stay out of the list until the user passes a
+  // step-up via HiddenEntriesToggle.
+  bool _showHidden = false;
+  bool _driveReauth = false;
 
   @override
   void initState() {
@@ -68,11 +73,34 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
       }
       await _load();
     } catch (e) {
-      setState(() {
-        _error = ApiClient.toApiException(e).message;
-        _loading = false;
-      });
+      _handleError(e);
+      if (mounted) setState(() => _loading = false);
     }
+  }
+
+  void _handleError(Object e) {
+    if (!mounted) return;
+    setState(() {
+      if (isDriveReauthRequired(e)) {
+        _driveReauth = true;
+        _error = null;
+      } else {
+        _error = ApiClient.toApiException(e).message;
+      }
+    });
+  }
+
+  Future<void> _reconnectDrive() async {
+    final connected = await context.push<bool>('/drive-connect');
+    if (connected == true && mounted) {
+      setState(() => _driveReauth = false);
+      await _load();
+    }
+  }
+
+  bool get _otpEnabledForHidden {
+    final session = ref.read(sessionControllerProvider);
+    return session is SessionAuthenticated && session.client.otpEnabled;
   }
 
   Future<void> _load() async {
@@ -90,14 +118,17 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
         _revisionIds = result.revisionIds;
       });
     } catch (e) {
-      setState(() => _error = ApiClient.toApiException(e).message);
+      _handleError(e);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
+  int get _hiddenCount => _entries.where((e) => e.type == VaultEntryType.account && e.fields['hidden'] == true).length;
+
   List<Account> get _accounts {
-    final accounts = _entries.where((e) => e.type == VaultEntryType.account).map(Account.fromEntry);
+    var accounts = _entries.where((e) => e.type == VaultEntryType.account).map(Account.fromEntry);
+    if (!_showHidden) accounts = accounts.where((a) => !a.hidden);
     if (_search.isEmpty) return accounts.toList();
     final query = _search.toLowerCase();
     return accounts
@@ -127,7 +158,7 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
         _revisionIds = result.revisionIds;
       });
     } catch (e) {
-      setState(() => _error = ApiClient.toApiException(e).message);
+      _handleError(e);
     }
   }
 
@@ -157,7 +188,7 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
         _revisionIds = result.revisionIds;
       });
     } catch (e) {
-      setState(() => _error = ApiClient.toApiException(e).message);
+      _handleError(e);
     }
   }
 
@@ -190,7 +221,7 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
         _revisionIds = result.revisionIds;
       });
     } catch (e) {
-      setState(() => _error = ApiClient.toApiException(e).message);
+      _handleError(e);
     }
   }
 
@@ -204,11 +235,24 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(8),
                 children: [
+                  if (_driveReauth) DriveReauthCard(onReconnect: _reconnectDrive),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    child: TextField(
-                      decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search accounts'),
-                      onChanged: (v) => setState(() => _search = v),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search accounts'),
+                            onChanged: (v) => setState(() => _search = v),
+                          ),
+                        ),
+                        HiddenEntriesToggle(
+                          count: _hiddenCount,
+                          revealed: _showHidden,
+                          otpEnabled: _otpEnabledForHidden,
+                          onChanged: (v) => setState(() => _showHidden = v),
+                        ),
+                      ],
                     ),
                   ),
                   if (_error != null)
@@ -222,7 +266,7 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                     ..._accounts.map(
                       (account) => Card(
                         child: ListTile(
-                          leading: const Icon(Icons.key),
+                          leading: Icon(account.hidden ? Icons.visibility_off_outlined : Icons.key),
                           title: Text(account.title),
                           subtitle: account.username.isNotEmpty ? Text(account.username) : null,
                           onTap: () => _reveal(account),

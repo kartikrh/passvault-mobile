@@ -4,11 +4,13 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/providers.dart';
+import '../../auth/application/session_controller.dart';
 import '../../vault_key/application/vault_key_controller.dart';
 import '../domain/note.dart';
 import '../domain/note_color.dart';
 import '../domain/vault_entry.dart';
 import 'note_form_screen.dart';
+import 'vault_widgets.dart';
 
 /// Notes tab -- list/add/edit/delete, pin/archive toggles. No step-up gate
 /// (unlike accounts): notes carry no password to protect the same way, and
@@ -26,6 +28,10 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
   List<VaultEntry> _entries = [];
   Map<String, String?> _revisionIds = {};
   String _search = '';
+  // Entries saved with Hide stay out of the list until the user passes a
+  // step-up via HiddenEntriesToggle.
+  bool _showHidden = false;
+  bool _driveReauth = false;
   bool _showArchived = false;
 
   @override
@@ -57,11 +63,34 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
       }
       await _load();
     } catch (e) {
-      setState(() {
-        _error = ApiClient.toApiException(e).message;
-        _loading = false;
-      });
+      _handleError(e);
+      if (mounted) setState(() => _loading = false);
     }
+  }
+
+  void _handleError(Object e) {
+    if (!mounted) return;
+    setState(() {
+      if (isDriveReauthRequired(e)) {
+        _driveReauth = true;
+        _error = null;
+      } else {
+        _error = ApiClient.toApiException(e).message;
+      }
+    });
+  }
+
+  Future<void> _reconnectDrive() async {
+    final connected = await context.push<bool>('/drive-connect');
+    if (connected == true && mounted) {
+      setState(() => _driveReauth = false);
+      await _load();
+    }
+  }
+
+  bool get _otpEnabledForHidden {
+    final session = ref.read(sessionControllerProvider);
+    return session is SessionAuthenticated && session.client.otpEnabled;
   }
 
   Future<void> _load() async {
@@ -79,14 +108,17 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
         _revisionIds = result.revisionIds;
       });
     } catch (e) {
-      setState(() => _error = ApiClient.toApiException(e).message);
+      _handleError(e);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
+  int get _hiddenCount => _entries.where((e) => e.type == VaultEntryType.note && e.fields['hidden'] == true).length;
+
   List<Note> get _notes {
     var notes = _entries.where((e) => e.type == VaultEntryType.note).map(Note.fromEntry);
+    if (!_showHidden) notes = notes.where((n) => !n.hidden);
     if (!_showArchived) notes = notes.where((n) => !n.archived);
     if (_search.isNotEmpty) {
       final query = _search.toLowerCase();
@@ -121,7 +153,7 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
         _revisionIds = result.revisionIds;
       });
     } catch (e) {
-      setState(() => _error = ApiClient.toApiException(e).message);
+      _handleError(e);
     }
   }
 
@@ -168,7 +200,7 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
         _revisionIds = result.revisionIds;
       });
     } catch (e) {
-      setState(() => _error = ApiClient.toApiException(e).message);
+      _handleError(e);
     }
   }
 
@@ -182,6 +214,7 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(8),
                 children: [
+                  if (_driveReauth) DriveReauthCard(onReconnect: _reconnectDrive),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     child: Row(
@@ -191,6 +224,12 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
                             decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search notes'),
                             onChanged: (v) => setState(() => _search = v),
                           ),
+                        ),
+                        HiddenEntriesToggle(
+                          count: _hiddenCount,
+                          revealed: _showHidden,
+                          otpEnabled: _otpEnabledForHidden,
+                          onChanged: (v) => setState(() => _showHidden = v),
                         ),
                         IconButton(
                           icon: Icon(_showArchived ? Icons.archive : Icons.archive_outlined),
@@ -212,7 +251,11 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
                       (note) => Card(
                         color: noteColorSwatch(note.color),
                         child: ListTile(
-                          leading: note.pinned ? const Icon(Icons.push_pin) : null,
+                          leading: note.hidden
+                              ? const Icon(Icons.visibility_off_outlined)
+                              : note.pinned
+                                  ? const Icon(Icons.push_pin)
+                                  : null,
                           title: Text(note.title.isEmpty ? '(untitled)' : note.title),
                           subtitle: Text(note.body, maxLines: 2, overflow: TextOverflow.ellipsis),
                           onTap: () => _edit(note),

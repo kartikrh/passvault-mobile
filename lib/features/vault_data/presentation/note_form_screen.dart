@@ -21,6 +21,7 @@ class _NoteFormScreenState extends State<NoteFormScreen> {
   late final _bodyController = TextEditingController(text: widget.initial?.body ?? '');
   late String? _color = widget.initial?.color;
   late List<String> _tags = List.of(widget.initial?.tags ?? []);
+  late bool _hidden = widget.initial?.hidden ?? false;
 
   @override
   void dispose() {
@@ -39,6 +40,7 @@ class _NoteFormScreenState extends State<NoteFormScreen> {
         body: _bodyController.text.trim(),
         color: _color,
         tags: _tags,
+        hidden: _hidden,
       ),
     );
   }
@@ -89,6 +91,13 @@ class _NoteFormScreenState extends State<NoteFormScreen> {
           ),
           const SizedBox(height: 24),
           TagsEditor(tags: _tags, onChanged: (t) => setState(() => _tags = t)),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Hide from the list'),
+            subtitle: const Text('Only shown after biometrics or a 2FA code'),
+            value: _hidden,
+            onChanged: (v) => setState(() => _hidden = v),
+          ),
         ],
       ),
     );

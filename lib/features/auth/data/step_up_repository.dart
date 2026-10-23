@@ -36,4 +36,20 @@ class StepUpRepository {
     final data = response.data as Map<String, dynamic>;
     return StepUpResult(data['verified'] == true, data['lastViewedAt'] as String?);
   }
+
+  /// POST /vault/auth/activity/passwordViewed -- audit log for a reveal that
+  /// was confirmed with biometrics on the device instead of a 2FA code.
+  Future<void> logPasswordViewed({
+    required String entryId,
+    String? entryName,
+    double? latitude,
+    double? longitude,
+  }) async {
+    await _apiClient.dio.post('/vault/auth/activity/passwordViewed', data: {
+      'entryId': entryId,
+      'entryName': entryName,
+      'latitude': latitude,
+      'longitude': longitude,
+    });
+  }
 }

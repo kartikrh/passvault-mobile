@@ -19,10 +19,16 @@ import '../../../core/api/api_client.dart';
 class WhitelabelConfig {
   final String? googleClientId;
 
-  const WhitelabelConfig({required this.googleClientId});
+  /// Brand logo URL set in the panel's White Label screen (shown on the
+  /// login and dashboard screens); null/empty when not configured.
+  final String? logoUrl;
 
-  factory WhitelabelConfig.fromJson(Map<String, dynamic> json) =>
-      WhitelabelConfig(googleClientId: json['googleKeyMobile'] as String?);
+  const WhitelabelConfig({required this.googleClientId, this.logoUrl});
+
+  factory WhitelabelConfig.fromJson(Map<String, dynamic> json) => WhitelabelConfig(
+        googleClientId: json['googleKeyMobile'] as String?,
+        logoUrl: (json['logo'] as String?)?.trim().isNotEmpty == true ? json['logo'] as String : null,
+      );
 
   static const none = WhitelabelConfig(googleClientId: null);
 }

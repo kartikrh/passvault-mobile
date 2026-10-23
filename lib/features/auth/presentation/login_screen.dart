@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/location/location_service.dart';
 import '../../../core/providers.dart';
+import '../../account/presentation/account_widgets.dart';
+import '../../../core/theme/glass_widgets.dart';
 import '../application/session_controller.dart';
 import '../data/google_auth_service.dart';
 import '../domain/auth_outcome.dart';
@@ -90,9 +92,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     final whitelabel = ref.watch(whitelabelProvider);
 
+    final logoutReason = ref.watch(logoutReasonProvider);
+
     return AuthScaffold(
       title: 'Welcome to PassVault',
       children: [
+        if (whitelabel.valueOrNull?.logoUrl != null) ...[
+          Center(child: BrandLogo(url: whitelabel.valueOrNull!.logoUrl, height: 56)),
+          const SizedBox(height: 16),
+        ],
+        if (logoutReason != null) ...[
+          Card(
+            color: Theme.of(context).colorScheme.secondaryContainer,
+            child: ListTile(
+              leading: const Icon(Icons.info_outline),
+              title: Text(logoutReason),
+              trailing: IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => ref.read(logoutReasonProvider.notifier).state = null,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
         if (_error != null) ...[
           Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
           const SizedBox(height: 16),
@@ -113,8 +135,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           enabled: !_submitting,
           onSubmitted: (_) => _submitting ? null : _login(),
         ),
-        const SizedBox(height: 20),
-        FilledButton(
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            onPressed: _submitting ? null : () => context.push('/forgot-password'),
+            child: const Text('Forgot password?'),
+          ),
+        ),
+        const SizedBox(height: 8),
+        HoloButton(
           onPressed: _submitting ? null : _login,
           child: _submitting
               ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
@@ -150,6 +179,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
           ),
         ),
+        const SizedBox(height: 16),
+        TextButton(onPressed: () => context.push('/pages'), child: const Text('Help & legal')),
       ],
     );
   }

@@ -57,6 +57,9 @@ class _RevealAccountDialogState extends State<_RevealAccountDialog> {
 
   void _copy(String label, String value) {
     Clipboard.setData(ClipboardData(text: value));
+    // Not tied to this dialog's lifetime (it auto-closes) -- the copied
+    // secret is wiped from the clipboard after 30s either way.
+    Future.delayed(const Duration(seconds: 30), () => Clipboard.setData(const ClipboardData(text: '')));
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$label copied')));
   }
 
